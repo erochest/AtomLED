@@ -121,14 +121,16 @@ MCU = getBoardConf(r'^%s\.build\.mcu=(.*)'%ARDUINO_BOARD)
 F_CPU = getBoardConf(r'^%s\.build\.f_cpu=(.*)'%ARDUINO_BOARD)
 
 # There should be a file with the same name as the folder and with the extension .pde
-TARGET = os.path.basename(os.path.realpath(os.curdir))
+TARGET = os.environ.get('TARGET', os.path.basename(os.path.realpath(os.curdir)))
 assert(os.path.exists(TARGET+'.pde'))
 
 cFlags = ['-ffunction-sections', '-fdata-sections', '-fno-exceptions',
     '-funsigned-char', '-funsigned-bitfields', '-fpack-struct', '-fshort-enums',
     '-Os', '-mmcu=%s'%MCU]
+
+STD_LIBS = pathJoin(ARDUINO_HOME, 'hardware/arduino/variants/standard')
 envArduino = Environment(CC = AVR_BIN_PREFIX+'gcc', CXX = AVR_BIN_PREFIX+'g++',
-    CPPPATH = ['build/core'], CPPDEFINES = {'F_CPU':F_CPU, 'ARDUINO':ARDUINO_VER},
+    CPPPATH = [STD_LIBS, 'build/core'], CPPDEFINES = {'F_CPU':F_CPU, 'ARDUINO':ARDUINO_VER},
     CFLAGS = cFlags+['-std=gnu99'], CCFLAGS = cFlags, TOOLS = ['gcc','g++'])
 
 def fnProcessing(target, source, env):
@@ -230,7 +232,7 @@ else:
 UPLOAD_PROTOCOL = getBoardConf(r'^%s\.upload\.protocol=(.*)'%ARDUINO_BOARD)
 UPLOAD_SPEED = getBoardConf(r'^%s\.upload\.speed=(.*)'%ARDUINO_BOARD)
 
-avrdudeOpts = ['-V', '-F', '-c %s'%UPLOAD_PROTOCOL, '-b %s'%UPLOAD_SPEED,
+avrdudeOpts = ['-c %s'%UPLOAD_PROTOCOL, # '-b %s'%UPLOAD_SPEED,
     '-p %s'%MCU, '-P %s'%ARDUINO_PORT, '-U flash:w:$SOURCES']
 if AVRDUDE_CONF:
     avrdudeOpts += ['-C %s'%AVRDUDE_CONF]
