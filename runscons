@@ -1,0 +1,7 @@
+#!/bin/bash
+
+TARGET=AtomLED
+EXTRA_LIB=/Applications/Arduino.app//Contents/Resources/Java/hardware/arduino/variants/standard
+
+PYTHONPATH=$(dirname $(find $VIRTUAL_ENV/lib -name SCons)) TARGET=$TARGET scons EXTRA_LIB=$EXTRA_LIB ARDUINO_PORT=/dev/tty.usbmodemfa131 "$@"
+
