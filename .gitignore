@@ -8,3 +8,7 @@ build
 cabal-dev
 dist
 python
+bin
+AtomLED
+include
+lib
