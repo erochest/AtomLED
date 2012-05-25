@@ -22,10 +22,14 @@ high = 255
 low :: Word8
 low = 0
 
-digitalWrite :: Expr a => E a -> E a -> Atom ()
-digitalWrite pin level = action dw [ue pin, ue level]
+digitalWrite :: UE -> UE -> Atom ()
+digitalWrite pin level = action dw [pin, level]
     where
-        dw [p, l] = "digitalWrite(" ++ p ++ "," ++ l ++ ")"
+        -- Umm. Why do the arguments get switched at this point?
+        dw [l, p] = "digitalWrite(" ++ p ++ "," ++ l ++ ")"
+
+vue :: V a -> UE
+vue = UVRef . uv
 
 -- | Simple Atom to toggle an LED, leaving it on 8 times as long as it's off.
 blink :: Atom ()
@@ -33,31 +37,35 @@ blink = do
     pin   <- word8 "pin"   lowPin
     level <- word8 "level" high
     delta <- word8 "delta" 1
-    wait  <- word8  "wait"  0
+    wait  <- word8 "wait"  0
 
-    period ph $ phase 0 $ atom "reset_low" $ do
-        cond ((value wait) ==. 0 &&. (value pin) ==. Const lowPin)
-        level <== Const high
-        delta <== Const 1
-        wait  <== Const waitCount
+    period ph $ phase 0 $ atom "lp" $ do
 
-    period ph $ phase 50 $ atom "reset_hight" $ do
-        cond ((value wait) ==. 0 &&. (value pin) ==. Const highPin)
-        level <== Const low
-        delta <== Const (-1)
-        wait  <== Const waitCount
+        atom "blink" $ do
+            cond $ (value wait) ==. 0
+            digitalWrite (vue pin) (vue level)
+            pin <== (value pin) + (value delta)
 
-    period ph $ phase 100 $ atom "blink" $ do
-        cond ((value wait) ==. 0)
-        digitalWrite (value pin) (value level)
-        pin <== (value pin) + (value delta)
+            atom "reset_low" $ do
+                cond $ (value pin) <. (value lp)
+                level <== Const high
+                delta <== Const 1
+                wait  <== Const waitCount
 
-    period ph $ phase 150 $ atom "decr_wait" $ do
-        cond ((value wait) >. 0)
-        decr wait
+            atom "reset_high" $ do
+                cond $ (value pin) >. (value hp)
+                level <== Const low
+                delta <== Const (-1)
+                wait  <== Const waitCount
 
-    where ph        = 500
+        atom "decr_wait" $ do
+            cond ((value wait) >. 0)
+            decr wait
+
+    where ph        = 10000
           waitCount = 5
+          lp        = word8' "lowPin"
+          hp        = word8' "highPin"
 
 -- | Invoke the Atom compiler.
 main :: IO ()
