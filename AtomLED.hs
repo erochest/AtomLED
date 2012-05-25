@@ -10,8 +10,11 @@ import Language.Atom
 import Data.Word
 import System.Directory
 
-ledPin :: Word8
-ledPin = 8
+lowPin :: Word8
+lowPin = 2
+
+highPin :: Word8
+highPin = 9
 
 high :: Word8
 high = 255
@@ -19,22 +22,42 @@ high = 255
 low :: Word8
 low = 0
 
-digitalWrite :: Word8 -> Atom ()
-digitalWrite = action dw . (:[]) . ue . Const
+digitalWrite :: Expr a => E a -> E a -> Atom ()
+digitalWrite pin level = action dw [ue pin, ue level]
     where
-        dw [l] = "digitalWrite(" ++ show ledPin ++ "," ++ l ++ ")"
+        dw [p, l] = "digitalWrite(" ++ p ++ "," ++ l ++ ")"
 
 -- | Simple Atom to toggle an LED, leaving it on 8 times as long as it's off.
 blink :: Atom ()
 blink = do
-    on <- bool "on" True
-    period ph $ phase 0 $ atom "blinkOn" $ do
-        digitalWrite 255
-        on <== not_ (value on)
-    period ph $ phase (quot ph 8) $ atom "blinkOff" $ do
-        digitalWrite 0
-        on <== not_ (value on)
-    where ph = 50000
+    pin   <- word8 "pin"   lowPin
+    level <- word8 "level" high
+    delta <- word8 "delta" 1
+    wait  <- word8  "wait"  0
+
+    period ph $ phase 0 $ atom "reset_low" $ do
+        cond ((value wait) ==. 0 &&. (value pin) ==. Const lowPin)
+        level <== Const high
+        delta <== Const 1
+        wait  <== Const waitCount
+
+    period ph $ phase 50 $ atom "reset_hight" $ do
+        cond ((value wait) ==. 0 &&. (value pin) ==. Const highPin)
+        level <== Const low
+        delta <== Const (-1)
+        wait  <== Const waitCount
+
+    period ph $ phase 100 $ atom "blink" $ do
+        cond ((value wait) ==. 0)
+        digitalWrite (value pin) (value level)
+        pin <== (value pin) + (value delta)
+
+    period ph $ phase 150 $ atom "decr_wait" $ do
+        cond ((value wait) >. 0)
+        decr wait
+
+    where ph        = 500
+          waitCount = 5
 
 -- | Invoke the Atom compiler.
 main :: IO ()
@@ -46,16 +69,15 @@ main = do
         atomName = "AtomLED"
         varInit t var val = cType t ++ " " ++ var ++ " = " ++ val ++ ";"
         prePostCode _ _ _ =
-            ( unlines [ (varInit Int16 "ledPin" $ show ledPin)
-                      , "void avr_blink(void);"
+            ( unlines [ (varInit Int16 "lowPin" $ show lowPin)
+                      , (varInit Int16 "highPin" $ show highPin)
                       ]
             , unlines [ "void setup() {"
                       , "  // initialize the digital pin as an output:"
-                      , "  pinMode(ledPin, OUTPUT);"
+                      , "  for (int i=lowPin; i<=highPin; i++) {"
+                      , "    pinMode(i, OUTPUT);"
+                      , "  }"
                       , "}"
-                      , ""
-                      , "// set the LED on or off"
-                      , "void avr_blink() { digitalWrite(ledPin, state.AtomLED.on); }"
                       , ""
                       , "void loop() {"
                       ,  "  " ++ atomName ++ "();"
