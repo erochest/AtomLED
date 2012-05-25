@@ -2,7 +2,8 @@
 
 TARGET=AtomLED
 EXTRA_LIB=/Applications/Arduino.app//Contents/Resources/Java/hardware/arduino/variants/standard
-ARDUINO_PORT=/dev/tty.usbmodemfa1331
+# ARDUINO_PORT=/dev/tty.usbmodemfa1331		## Right on keyboard
+ARDUINO_PORT=/dev/tty.usbmodemfa131		## First on laptop
 
 PYTHONPATH=$(dirname $(find $VIRTUAL_ENV/lib -name SCons)) TARGET=$TARGET scons EXTRA_LIB=$EXTRA_LIB ARDUINO_PORT=$ARDUINO_PORT "$@"
 
